@@ -3,77 +3,37 @@ package core
 import java.io.{BufferedOutputStream, File, FileOutputStream}
 
 import ch.qos.logback.classic.Logger
-import org.slf4j.LoggerFactory
-
-import sys.process._
 import smtlib.parser.Commands._
-import smtlib.parser.CommandsResponses.{CheckSatResponse, CheckSatStatus, SatStatus, UnsatStatus, UnknownStatus}
+import smtlib.parser.CommandsResponses._
 import smtlib.theories.Core
+import viper.silver.verifier.{VerificationResult, errors, reasons, Failure => ViperFailure, Success => ViperSuccess}
 import viper.silver.{ast => sil}
-import viper.silver.frontend.SilFrontend
-import viper.silver.reporter.{NoopReporter, Reporter}
-import viper.silver.verifier.{VerificationResult, Failure => ViperFailure, Success => ViperSuccess}
-import viper.silver.verifier.errors
-import viper.silver.verifier.reasons
 
-import scala.sys.process.{ProcessIO, ProcessLogger}
+import scala.sys.process.{ProcessIO, _}
 
-class MyVerifierFrontend(override val reporter: Reporter, override val logger: Logger) extends SilFrontend{ // "Sil" is an (old) name for the Viper intermediate language
-
-  def this() = {
-    this(NoopReporter, LoggerFactory.getLogger(getClass.getName).asInstanceOf[Logger])
-  }
-
-  def this(reporter: Reporter) = {
-    this(reporter, LoggerFactory.getLogger(getClass.getName).asInstanceOf[Logger])
-  }
-
-  protected var verifierInstance: MyVerifier = _ // initialised to null - this will be set in the "execute" method below (which calls createVerifier)
-
-  def createVerifier(fullCmd: String) = {
-    logger.trace(s"Create verifier: $fullCmd")
-    verifierInstance = new MyVerifier(logger)  // you will do your work in this class (see below)
-
-    verifierInstance
-  }
-
-  def configureVerifier(args: Seq[String]) = {
-    logger.trace(s"Configure verifier: $args")
-    verifierInstance.parseCommandLine(args)
-    verifierInstance.start() // not strictly needed; the current implementation doesn't do anything
-
-    verifierInstance.config
-  }
-}
 
 object Main extends MyVerifierFrontend {
 
   def main(args: Array[String]) {
     try {
       execute(args)
-      /* Will call createVerifier and configureVerifier (already defined below), and then verify the program (see verify method in MyVerifier)*/
+        // Will call createVerifier and configureVerifier (already defined in
+        // MyVerifierFrontend), and then verify the program (see verify method
+        // in MyVerifier)
     } finally {
-      verifierInstance.stop() // also doesn't do anything in the current implementation - only needed if you have to "clean-up" in some way
+      verifierInstance.stop()
+        // also doesn't do anything in the current implementation – only
+        // needed if you have to "clean-up" in some way
     }
-
-    val exitCode =
-      if ( config.error.nonEmpty /* Handling command line options failed */
-        || config.exit           /* We had to terminate for some other reason */
-        || result != ViperSuccess) /* Verification (including parsing) failed */
-        1
-      else
-        0
-
-    sys.exit(exitCode)
   }
 
 }
 
-
-
 // This is where you will do most of your work:
 
 class MyVerifier(private val logger: Logger) extends BareboneVerifier {
+  // You can change the log level that is used when running from a command line
+  // in the MyVerifierFrontend constructor that takes no arguments.
 
   override def name: String = "MyVerifier"
 

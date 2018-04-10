@@ -17,6 +17,7 @@ import viper.silver.ast._
 import viper.silver.parser._
 import viper.silver.plugin.SilverPluginManager
 import viper.silver.plugin.SilverPluginManager.{PluginException, PluginNotFoundException, PluginWrongTypeException}
+import viper.silver.reporter.{OverallFailureMessage, OverallSuccessMessage}
 import viper.silver.verifier._
 
 /**
@@ -163,8 +164,12 @@ trait SilFrontend extends DefaultFrontend {
 
     _plugins.beforeFinish(result) match {
       case Success =>
+        val timeMs = System.currentTimeMillis() - _startTime
+        reporter.report(OverallSuccessMessage(_ver.name, timeMs))
         printSuccess()
       case f@Failure(errors) =>
+        val timeMs = System.currentTimeMillis() - _startTime
+        reporter.report(OverallFailureMessage(_ver.name, timeMs, f))
         printErrors(errors: _*)
     }
   }
@@ -216,6 +221,7 @@ trait SilFrontend extends DefaultFrontend {
     if (config.error.nonEmpty) {
       logger.info("")
       logger.info("Run with --help for usage and options")
+      println("Run with --help for usage and options")
     }
   }
 
