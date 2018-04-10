@@ -12,6 +12,9 @@ import viper.silver.{ast => sil}
 import scala.sys.process.{ProcessIO, _}
 
 
+// The entry point of the program when running from a command line.
+// You should not need to change this object. The most important class
+// for you is the MyVerifier class below.
 object Main extends MyVerifierFrontend {
 
   def main(args: Array[String]) {
