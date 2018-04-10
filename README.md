@@ -30,5 +30,5 @@ Quick start (assuming you have SBT installed):
     ```
     cd VerifierProject
     sbt
-    run src/test/resources/MyTests/lecture-pairs.vpr
+    run src/test/resources/provided/lecture-pairs.vpr
     ```
