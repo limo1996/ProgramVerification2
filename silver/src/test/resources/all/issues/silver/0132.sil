@@ -1,0 +1,5 @@
+method test() {
+  var x: Int;
+  //:: ExpectedOutput(consistency.error)
+  assert x == old[l1](x);
+}

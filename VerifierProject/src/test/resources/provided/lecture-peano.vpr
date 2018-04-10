@@ -1,0 +1,76 @@
+domain Nat {
+  function zero() : Nat
+  function succ(m: Nat) : Nat
+  function sign(m: Nat) : Int
+
+  axiom sign_base {
+    sign(zero()) == 0
+  }
+
+  //axiom sign_step {
+  //  forall a:Nat, b:Nat :: {succ(b),sign(a)} a==succ(b) ==> sign(a) == 1
+  //}
+
+  axiom sign_alt {
+    forall a:Nat :: {sign(succ(a))} sign(succ(a)) == 1
+ }
+
+  axiom sign_def {
+    forall a:Nat :: {sign(a)} sign(a) == (tag(a) == 0 ? 0 : 1)
+  }
+
+  function tag(n:Nat) : Int
+  axiom tag_cases {
+    forall a:Nat :: {tag(a)} tag(a) == 0 && a==zero() || tag(a) == 1 && exists b:Nat :: a==succ(b)
+  }
+//  axiom tag_zero {
+//    tag(zero()) == 0
+//  }
+//  axiom tag_succ {
+//    forall n:Nat :: {succ(n)} tag(succ(n)) == 1
+//  }
+  function pred(m:Nat) : Nat
+
+  axiom pred_succ {
+      forall m:Nat :: {succ(m)} pred(succ(m)) == m
+  }
+  axiom succ_pred {
+      forall m:Nat :: {pred(m)} tag(m) == 1 ==> succ(pred(m)) == m
+  }
+
+  function plus(m:Nat, n:Nat) : Nat
+
+  axiom plus_def {
+      forall m:Nat, n:Nat :: {plus(m,n)} plus(m,n) == 
+        (tag(m) == 0 ? n : succ(plusL(pred(m),n)))
+  }
+
+  function plusL(m: Nat, n:Nat) : Nat
+   
+  axiom plusL_def {
+      forall m:Nat, n:Nat :: {plus(m,n)} plus(m,n) == plusL(m,n)
+  }
+
+  axiom plus_zero {
+      forall n:Nat :: {plus(zero(),n)} plus(zero(),n) == n
+  }
+  axiom plus_succ {
+      forall m:Nat, n:Nat :: {plus(succ(m),n)} plus(succ(m),n) == succ(plus(m,n))
+  }
+}
+
+method test(x:Nat,y:Nat,z:Nat) {
+    assert sign(succ(zero())) == 1
+    assert x!=zero() ==> sign(x)==1
+    assert forall n : Nat :: (sign(n) == 0 || sign(n) == 1)
+    assert sign(y)!=0 ==> sign(plus(x,y))!=0
+    assert plus(succ(zero()),succ(zero())) == succ(succ(zero()))
+    //  This assertion causes matching loops (without adding manual triggers, as below):
+    // assert forall m:Nat, n:Nat :: plus(zero(),plus(m,n)) == plus(plus(zero(),m),n)
+    assert forall m:Nat, n:Nat :: {plus(zero(),plus(m,n))} plus(zero(),plus(m,n)) == plus(plus(zero(),m),n)
+//  This assertion causes matching loops (without adding manual triggers):
+//    assert forall p:Nat, m:Nat, n:Nat :: plus(p,plus(m,n)) == plus(plus(p,m),n) ==> plus(succ(p),plus(m,n)) == plus(plus(succ(p),m),n)
+    assert forall p:Nat :: plus(p,plus(y,z)) == plus(plus(p,y),z) ==> plus(succ(p),plus(y,z)) == plus(plus(succ(p),y),z)
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert plus(x,plus(y,z)) == plus(plus(x,y),z) // fails: we don't get induction for free
+}

@@ -1,0 +1,16 @@
+define macro {
+    var x: Bool := true
+    assert(x)
+}
+
+method main()
+{
+    {
+        var x: Bool := true
+        assert(x)
+    }
+    {
+        var x$0: Bool := true
+        assert(x$0)
+    }
+}

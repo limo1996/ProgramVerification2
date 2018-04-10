@@ -1,0 +1,8 @@
+method callee(x: Ref)
+
+method caller() {
+  //:: ExpectedOutput(typechecker.error)
+  callee()
+  //:: ExpectedOutput(typechecker.error)
+  callee(null, null)
+}

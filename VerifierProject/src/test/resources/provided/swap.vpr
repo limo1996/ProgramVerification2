@@ -1,0 +1,13 @@
+method test_swap() {
+    var x: Int := 1
+    var y: Int := 2
+
+    var tmp: Int
+    tmp := y;
+    y := x;
+    x := tmp;
+
+    assert x == 2 && y == 1;
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert false;
+}

@@ -1,0 +1,64 @@
+//:: IgnoreFile(/silicon/issue/128/)
+//:: IgnoreFile(/carbon/issue/91/)
+
+field f: Int
+
+method bfind (S: Seq[Ref], x: Int, p: Perm) returns (index: Int)
+  requires p > none && p < write
+  requires forall i: Int :: i in [0..|S|)  ==> acc(S[i].f, p)
+  requires forall i: Int :: i in [0..|S|-1)  ==> S[i].f < S[i + 1].f
+  ensures forall i: Int :: i in [0..|S|) ==> acc(S[i].f, p)
+  ensures -1 <= index && index < |S|
+  ensures 0 <= index && index < |S| ==> S[index].f == x
+  //:: UnexpectedOutput(postcondition.violated:assertion.false, /silicon/issue/76/)
+  ensures index == -1 ==> (forall i: Int :: i in [0..|S|) ==> S[i].f != x)
+{
+  if(|S| == 0) {
+    index := -1
+  } elseif (|S|==1) {
+    index := x == S[0].f ? 0 : -1
+  } else {
+    // split
+    var k:Int
+    inhale 0<k && k<|S|-1
+
+    if (S[k].f < x) {
+      index := bfind(S[0..k], x, p)
+    } else {
+      assert forall i: Int :: i in [0..|S|-1)  ==> S[i].f < S[i + 1].f
+      assert forall i: Int :: i in [k..|S|-k-1)  ==> S[i].f < S[i + 1].f
+      var SS: Seq[Ref] := S[k..|S|]
+      assert forall i: Int :: i in [0..|SS|-1)  ==> SS[i].f < SS[i + 1].f
+
+      index := bfind(S[k..|S|], x, p)
+    }
+  }
+}
+
+method bfind1(S: Seq[Ref], start: Int, end: Int, x:Int, p: Perm) returns (index:Int)
+  requires p > none && p < write && start <= end && 0 <= start && end <= |S|
+  requires forall i7:Int :: i7 in [start..end) ==> acc(S[i7].f, p)
+  requires forall i4:Int :: start<=i4 && i4<end-1 ==> S[i4].f<S[i4+1].f
+  ensures forall i5:Int :: i5 in [start..end) ==> acc(S[i5].f, p)
+  ensures (start <= index && index < end) || index == -1
+  ensures start <= index && index < end ==> S[index].f==x
+  //:: UnexpectedOutput(postcondition.violated:assertion.false, /silicon/issue/76/)
+  ensures index == -1 ==> (forall i6:Int :: i6 in [start..end) ==> S[i6].f != x)
+{
+    if(start == end) {
+        index := -1
+    }
+    elseif (start == end-1) {
+        index := x == S[start].f ? start : -1
+    }
+    else {
+        // split
+        var k:Int
+        inhale start<k && k<end-1
+
+		if (S[k].f < x) {
+		  index := bfind1(S, start, k, x, p)
+		}
+		else { index := bfind1(S, k, end, x, p) }
+    }
+}

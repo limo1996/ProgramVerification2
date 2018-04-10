@@ -1,0 +1,11 @@
+field f: Int
+
+method foo(x: Ref)
+  requires x != null
+  //:: ExpectedOutput(application.precondition:insufficient.permission)
+  ensures bar(x)
+{}
+
+function bar(x: Ref): Bool
+  requires acc(x.f)
+{ true }

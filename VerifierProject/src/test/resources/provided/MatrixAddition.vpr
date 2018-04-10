@@ -1,0 +1,48 @@
+// NOTE: this example should not (yet) verify, since it doesn't have appropriate loop invariants.
+// You can attempt to develop an example which verifies as a bonus task (see project description)
+// Alternatively, you can keep this as an intentionally-failing test case for your project
+
+domain Matrix {
+  // Note: this domain definition only supports square matrices, for simplicity
+  function select(m: Matrix, i: Int, j: Int) : Int
+  function store(m:Matrix, i: Int, j:Int, value: Int) : Matrix
+  function size(m:Matrix) : Int // only one size function needed for a square matrix (number of rows and number of columns)
+
+  axiom select_store_same {
+    forall m: Matrix, i: Int, j:Int, v:Int :: {select(store(m,i,j,v),i,j)} inRange(m,i,j) ==> select(store(m,i,j,v),i,j) == v
+  }
+
+  axiom select_store_diff {
+    forall m: Matrix, i1: Int, j1:Int, i2: Int, j2:Int, v : Int :: {select(store(m,i1,j1,v),i2,j2)} {select(m,i2,j2),store(m,i1,j1,v)}
+      inRange(m,i1,j1) && inRange(m,i2,j2) && (i1 != i2 || j1 != j2) ==> select(store(m,i1,j1,v),i2,j2) == select(m,i2,j2)
+  }
+}
+
+// Viper macros get inlined in advance (as part of parsing/checking the program); you don't need to do anything to support them
+define inRange(m,i,j) 0 <= i && 0 <= j && i < size(m) && j < size(m)
+
+method add(m1 : Matrix, m2: Matrix) returns (m3:Matrix)
+  requires size(m1) == size(m2)
+  ensures forall x:Int, y:Int :: {select(m3,x,y)} inRange(m1,x,y) ==> select(m3,x,y) == select(m1,x,y) + select(m2,x,y)
+{
+  assume size(m3) == size(m1) // “initialise” m3 to *some* matrix of the right size
+  var i : Int := 0
+  var j : Int
+
+  while(i < size(m1))
+  {
+    j := 0
+    while(j < size(m1))
+    {
+      m3 := store(m3,i,j,(select(m1,i,j) + select(m2,i,j)))
+      assert select(m3,i,j) == select(m1,i,j) + select(m2,i,j) // consider: why does this fail?
+      j := j + 1
+    }
+    i := i + 1
+  }
+}
+
+method test() {
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert false
+}

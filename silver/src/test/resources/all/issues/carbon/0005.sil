@@ -1,0 +1,5 @@
+field f: Int
+
+method test(x: Ref)
+	requires acc(x.f, none)
+{}

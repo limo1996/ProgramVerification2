@@ -1,0 +1,6 @@
+predicate P(x: Ref)
+
+method test(x: Ref)
+{
+    exhale acc(P(x), none)
+}

@@ -1,0 +1,5 @@
+method test()
+{
+  //:: ExpectedOutput(consistency.error)
+  assert (forall i: Int :: {i+1} true)
+}

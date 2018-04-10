@@ -1,0 +1,4 @@
+method foo(){
+  var g: Set[Ref]
+  exhale g == g union Set()
+}

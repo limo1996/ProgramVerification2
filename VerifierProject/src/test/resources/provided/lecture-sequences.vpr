@@ -1,0 +1,33 @@
+domain Sequence {
+  function lookup(s:Sequence, i:Int) : Int
+  function length(s:Sequence) : Int
+  function append(s1:Sequence, s2:Sequence) : Sequence
+  function empty() : Sequence
+  function singleton(i: Int) : Sequence
+
+  axiom length_empty {
+      length(empty()) == 0
+  }
+  axiom length_singleton {
+     forall i:Int :: length(singleton(i)) == 1
+  }
+  axiom length_append {
+     forall s1: Sequence, s2:Sequence :: {length(append(s1,s2))}
+       {length(s1),append(s1,s2)}{length(s2),append(s1,s2)}
+       length(append(s1,s2)) == length(s1) + length(s2)
+  }
+
+  axiom length_pos {
+    forall s: Sequence :: length(s) >= 0 
+  }
+} 
+
+method test(s1: Sequence, s2:Sequence) {
+  assert  length(singleton(3)) == 1
+  //assert length(append(s1,s2)) >= length(s1)
+  assert append(s1,s2) == s2 ==> length(s1) == 0
+  assert append(singleton(0),append(singleton(1),singleton(2))) 
+      == append(append(singleton(0),singleton(1)),singleton(2))
+  //:: ExpectedOutput(assert.failed:assertion.false)
+  assert false
+}

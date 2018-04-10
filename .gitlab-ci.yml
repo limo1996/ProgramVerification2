@@ -1,0 +1,7 @@
+image: vakaras/pvproject1:2018-02-13
+
+build:
+  script:
+    - cd VerifierProject
+    - sbt test
+    - cd ..

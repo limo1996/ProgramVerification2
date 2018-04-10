@@ -1,0 +1,4 @@
+method test()
+{
+  assert [false, true] || [true, false]
+}

@@ -1,0 +1,19 @@
+method max(a: Int, b: Int) returns (res: Int)
+    ensures res == a || res == b
+    ensures res >= a && res >= b
+{
+    if (a < b) {
+        res := b
+    } else {
+        res := a
+    }
+}
+
+method test() {
+    var m: Int;
+    assume m == 1 || m == 2;
+    assume m >= 1 && m >= 2
+    assert m == 2;
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert false;
+}
