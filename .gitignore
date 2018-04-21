@@ -3,3 +3,5 @@
 */target
 */project/target
 tmp
+target/
+*DS_Store

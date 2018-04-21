@@ -1,0 +1,15 @@
+method test(x: Int)
+{
+  if(x > 0){
+    assume x > 0
+    assert x == 2
+    assume x == 2
+  } else {
+    assume x <= 0
+    assert x < 0
+    assume x < 0
+    assert x != 0
+    assume x != 0
+  }
+  assert x == 2
+}

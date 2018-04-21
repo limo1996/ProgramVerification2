@@ -8,7 +8,9 @@ import smtlib.parser.CommandsResponses._
 import smtlib.theories.Core
 import viper.silver.verifier.{VerificationResult, errors, reasons, Failure => ViperFailure, Success => ViperSuccess}
 import viper.silver.{ast => sil}
+import sil._
 
+import scala.collection.mutable.ListBuffer
 import scala.sys.process.{ProcessIO, _}
 
 
@@ -64,6 +66,16 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
       println("Input program:\n" + program) // right now, we just print the input program - but you should verify it!
     }
 
+    // TMP
+    program.methods.forall(
+      m => m match {
+        case sil.Method(name, formalArgs, formalReturns, preconditions, postconditions, body)
+          => body match {
+          case Some(seqn) => {println(wlp(seqn)); true}
+        }
+      }
+    )
+
     if(! util.supportedViperSyntax.isSupportedProgram(program)) {
       val failure = ViperFailure(Seq(
         errors.Internal(program, reasons.InternalReason(program, "Input program uses unsupported Viper features!"))
@@ -103,7 +115,7 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
 
     // You can decide between writing your smt queries directly as Strings (as in the prelude above), or using the scala-smtlib library to build them up as an AST which you then print. Or indeed, you can mix both approaches, as below
     // You will want to change this query to represent the verification conditions for your input program
-    val toyQuery = Assert(Core.BoolConst(false)) :: CheckSat() :: List()
+    val toyQuery = smtlib.parser.Commands.Assert(Core.BoolConst(false)) :: CheckSat() :: List()
     // when printed via "mkString" (to convert the list of Strings into one), this will give the String "(assert false)\n(check-sat)\n"
 
 
@@ -182,7 +194,56 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     viperResult
   }
 
+  def wlp(seqn: Seqn) : ListBuffer[sil.Exp] = {
+    var delta = new ListBuffer[sil.Exp]()
+    delta = wlp_star_seq(seqn, delta)
+    delta
+  }
 
+  def wlp_star_seq(seqn: Seqn,  delta : ListBuffer[sil.Exp]) : ListBuffer[sil.Exp] = seqn match {
+    case Seqn(statements, variableDeclarations) => {
+      println("case seqn: " + statements)
+      // Viper sequential composition (which can be treated as a scope) takes a Scala
+      // Seq of Stmt elements and variable declarations.
+      var new_delta = delta
+      for(stmt <- statements.reverse){
+        new_delta = wlp_star(stmt, new_delta)
+      }
+      println("delta: " + new_delta)
+      new_delta
+    }
+    case _ => throw new Exception("wpl_wrapper: no case matched with : " + seqn)
+  }
+
+  def wlp_star(stmt : sil.Stmt,  delta : ListBuffer[sil.Exp]) : ListBuffer[sil.Exp] = {
+    stmt match {
+      case sil.Assert(expression) => {
+        println("case assert: " + expression)
+        var new_delta = delta
+        new_delta += expression
+        println("delta: " + new_delta)
+        new_delta
+      }
+      case Inhale(expression) => {
+        println("case assume: " + expression)
+        var new_delta = new ListBuffer[sil.Exp]()
+        for(expr <- delta){
+          new_delta += sil.Implies(expression, expr)()
+        }
+        println("delta: " + new_delta)
+        new_delta
+      }
+      case If(condition, ifTrue, ifFalse) => {
+          println("case if: " + condition)
+          var new_delta = new ListBuffer[sil.Exp]()
+          new_delta ++= wlp_star_seq(ifTrue, delta)
+          new_delta ++= wlp_star_seq(ifFalse, delta)
+          println("delta: " + new_delta)
+          new_delta
+      }
+      case _ => throw new Exception("wpl_star: no case matched with : " + stmt)
+    }
+  }
   // utility method for reading the input stream into a String
   def convertStreamToString(is: java.io.InputStream) : String = {
     val s = new java.util.Scanner(is).useDelimiter("\\A")
