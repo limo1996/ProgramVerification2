@@ -67,14 +67,14 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     }
 
     // TMP
-    program.methods.forall(
+    /*program.methods.forall(
       m => m match {
         case sil.Method(name, formalArgs, formalReturns, preconditions, postconditions, body)
           => body match {
           case Some(seqn) => {println(wlp(seqn)); true}
         }
       }
-    )
+    )*/
 
     if(! util.supportedViperSyntax.isSupportedProgram(program)) {
       val failure = ViperFailure(Seq(
@@ -84,8 +84,11 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
       return failure
     }
 
+    val transformer = new MethodTransformer()
+
     if (config.printDSA.getOrElse(false)) {
-      ???
+      for (m <- program.methods)
+        println(transformer.transform(m))
     }
 
     val defaultOptions = Seq("-smt2") // you may want to pass more options to z3 here, or do it via the command-line argument z3Args
