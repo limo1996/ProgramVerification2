@@ -6,11 +6,13 @@ import ch.qos.logback.classic.Logger
 import smtlib.parser.Commands._
 import smtlib.parser.CommandsResponses._
 import smtlib.theories.Core
+import viper.silver.verifier.AbstractVerificationError
 import viper.silver.verifier.{VerificationResult, errors, reasons, Failure => ViperFailure, Success => ViperSuccess}
 import viper.silver.{ast => sil}
 import sil._
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.HashMap
 import scala.sys.process.{ProcessIO, _}
 
 
@@ -65,6 +67,9 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     if (config.printOriginal.getOrElse(false)) {
       println("Input program:\n" + program) // right now, we just print the input program - but you should verify it!
     }
+
+    // should be used for statements error pairing
+    var mapping = new HashMap[Int, AbstractVerificationError]()
 
     // TMP
     /*program.methods.forall(
