@@ -67,14 +67,14 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     }
 
     // TMP
-    program.methods.forall(
+    /*program.methods.forall(
       m => m match {
         case sil.Method(name, formalArgs, formalReturns, preconditions, postconditions, body)
           => body match {
           case Some(seqn) => {println(wlp(seqn)); true}
         }
       }
-    )
+    )*/
 
     if(! util.supportedViperSyntax.isSupportedProgram(program)) {
       val failure = ViperFailure(Seq(
