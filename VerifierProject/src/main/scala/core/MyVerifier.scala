@@ -84,8 +84,11 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
       return failure
     }
 
+    val transformer = new MethodTransformer()
+
     if (config.printDSA.getOrElse(false)) {
-      ???
+      for (m <- program.methods)
+        println(transformer.transform(m))
     }
 
     val defaultOptions = Seq("-smt2") // you may want to pass more options to z3 here, or do it via the command-line argument z3Args
