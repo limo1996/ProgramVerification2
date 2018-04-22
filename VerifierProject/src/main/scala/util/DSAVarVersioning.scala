@@ -11,10 +11,10 @@ class DSAVarVersioning {
   private val snapshot = mutable.HashMap[String, Int]()
   private val ignoredVars = mutable.Set[String]()                // variables that should not be versioned
 
-  private def getVersion(varName: String): Int = versioning.getOrElse(varName, -1)
-  private def setVersion(varName: String, varVersion: Int): Unit = versioning.put(varName, varVersion)
+  def getVersion(varName: String): Int = versioning.getOrElse(varName, -1)
+  def setVersion(varName: String, varVersion: Int): Unit = versioning.put(varName, varVersion)
 
-  private def constructIdentifier(varName: String, varVersion: Int): String = varName + separator + varVersion
+  def constructIdentifier(varName: String, varVersion: Int): String = varName + separator + varVersion
 
   /**
     * Adds variable to the ignored list, i.e., the variables that should not be versioned
@@ -47,12 +47,11 @@ class DSAVarVersioning {
     constructIdentifier(varName, version)
   }
 
-  def takeSnapshot(): Unit = {
-    snapshot.clear()
-    snapshot ++= versioning
+  def getSnapshot: Map[String, Int] = {
+    versioning.toMap
   }
 
-  def revertToSnapshot(): Unit = {
+  def revertToSnapshot(snapshot: Map[String, Int]): Unit = {
     versioning.clear()
     versioning ++= snapshot
   }
