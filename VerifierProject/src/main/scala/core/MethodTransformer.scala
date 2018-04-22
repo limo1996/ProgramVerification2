@@ -2,6 +2,7 @@ package core
 
 import util.DSAVarVersioning
 import viper.silver.ast._
+import viper.silver.ast.utility.Rewriter.Traverse
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -77,6 +78,17 @@ class MethodTransformer {
     exp.transform(pre)
   }
 
+  private def transformIfStmts[A<:Node](node: A): A = {
+    val pre: PartialFunction[Node, Node] = {
+      case If(cond, thn, els) =>
+        If(cond,
+          Seqn(Seq(Inhale(cond)()) ++ thn.ss, thn.scopedDecls)(),
+          Seqn(Seq(Inhale(Not(cond)())()) ++ els.ss, els.scopedDecls)()
+        )()
+    }
+    node.transform(pre, Traverse.BottomUp)
+  }
+
   private def transformIfToDSA(ifStmt: If): If = {
     // Transform the if condition and take a snapshot of the variables' versions.
     val transformedIfCondition = renameVarUseInExpression(ifStmt.cond)
@@ -149,6 +161,7 @@ class MethodTransformer {
     versionOriginalVarDecls()
 
     var transformedBody = transformNodeToDSA(method.body.get)
+    transformedBody = transformIfStmts(transformedBody)
     val v1 = getFormalReturnsAfterDSA(method.formalReturns)
     formalRetDecls --= v1
     val v = Seqn(transformedBody.ss, formalRetDecls.toSeq ++ localVarDecls.toSeq)()
