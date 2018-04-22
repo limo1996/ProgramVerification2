@@ -89,6 +89,13 @@ class MethodTransformer {
     node.transform(pre, Traverse.BottomUp)
   }
 
+  private def transformAssertStmts[A<:Node](node: A): A = {
+    val pre: PartialFunction[Node, Node] = {
+      case node@Assert(exp) => Seqn(Seq(node, Inhale(exp)()), Seq())()
+    }
+    node.transform(pre)
+  }
+
   private def transformIfToDSA(ifStmt: If): If = {
     // Transform the if condition and take a snapshot of the variables' versions.
     val transformedIfCondition = renameVarUseInExpression(ifStmt.cond)
@@ -161,6 +168,7 @@ class MethodTransformer {
     versionOriginalVarDecls()
 
     var transformedBody = transformNodeToDSA(method.body.get)
+    transformedBody = transformAssertStmts(transformedBody)
     transformedBody = transformIfStmts(transformedBody)
     val v1 = getFormalReturnsAfterDSA(method.formalReturns)
     formalRetDecls --= v1
