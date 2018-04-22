@@ -8,7 +8,7 @@ import viper.silver.frontend.Frontend
 import viper.silver.testing.SilSuite
 import viper.silver.verifier.Verifier
 
-class VerifierTests  extends SilSuite {
+class VerifierTests extends SilSuite {
 
   def createVerifierInstance() = {
     val logger = LoggerFactory.getLogger(getClass.getName).asInstanceOf[Logger]
