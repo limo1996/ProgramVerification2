@@ -107,6 +107,16 @@ class MethodTransformer {
     node.transform(pre)
   }
 
+  private def transformPreConditions(methodBody: Seqn, pres: Seq[Exp]): Seqn = {
+    val transformedPres = pres.map(p => renameVarUseInExpression(p))
+    Seqn(transformedPres.map(p => Inhale(p)()) ++ methodBody.ss, Seq())()
+  }
+
+  private def transformPostConditions(methodBody: Seqn, posts: Seq[Exp]): Seqn = {
+    val transformedPosts = posts.map(p => renameVarUseInExpression(p))
+    Seqn(methodBody.ss ++ transformedPosts.map(p => Assert(p)(p.pos, p.info)), Seq())()
+  }
+
   private def transformIfToDSA(ifStmt: If): If = {
     // Transform the if condition and take a snapshot of the variables' versions.
     val transformedIfCondition = renameVarUseInExpression(ifStmt.cond)
@@ -152,6 +162,45 @@ class MethodTransformer {
     )()
   }
 
+  private def transformWhileToDsa(whileStmt: While): Seqn = {
+    val invariantsToEstablish = whileStmt.invs.map(inv => renameVarUseInExpression(inv))
+
+    // Havoc of variables assigned in the loop is simulated by increasing their version
+    val varsAssigned = getLocalVarAssigns(whileStmt.body).map(v => v.name) -- whileStmt.body.scopedDecls.map(sv => sv.name)
+    for (v <- varsAssigned) varVersioning.getNewIdentifier(v)
+
+    // Take snapshot of the current version of vars
+    val snapshot = varVersioning.getSnapshot
+
+    val invariantsToAssume = whileStmt.invs.map(inv => renameVarUseInExpression(inv))
+    val transformedLoopCondition = renameVarUseInExpression(whileStmt.cond)
+    val transformedLoopBody = transformNodeToDSA(whileStmt.body)
+    val invariantsToPreserve = whileStmt.invs.map(inv => renameVarUseInExpression(inv))
+
+    def conjunctExpressions(expressions: Seq[Exp]): Exp = expressions match {
+      case Seq() => TrueLit()()
+      case Seq(t) => t
+      case _ => expressions.reduce((exp1, exp2) => And(exp1, exp2)())
+    }
+
+    val transformed = Seqn(
+      invariantsToEstablish.map(inv => Assert(inv)()) ++
+      Seq(
+        If(transformedLoopCondition,
+          Seqn(Seq(Inhale(And(conjunctExpressions(invariantsToAssume), transformedLoopCondition)())(), transformedLoopBody)
+              ++ invariantsToPreserve.map(inv => Assert(inv)())
+              ++ Seq(Inhale(FalseLit()())())
+          , Seq())(),
+          Seqn(Seq(Inhale(And(conjunctExpressions(invariantsToAssume), Not(transformedLoopCondition)())())()), Seq())()
+        )()
+      ), Seq())()
+
+    // Reset variables' version to the ones after the havoc, as the traces of the loop body are killed
+    varVersioning.revertToSnapshot(snapshot)
+
+    transformed
+  }
+
   private def transformNodeToDSA[A<:Node](node: A): A = {
     val pre: PartialFunction[Node, Node] = {
       case node: LocalVarAssign =>
@@ -159,6 +208,7 @@ class MethodTransformer {
         Inhale(EqCmp(renameVarDef(node.lhs), rhsExp)())()
       case node: Exp => renameVarUseInExpression(node)
       case node: If => transformIfToDSA(node)
+      case node: While => transformWhileToDsa(node)
     }
 
     node.transform(pre)
@@ -179,8 +229,10 @@ class MethodTransformer {
     versionOriginalVarDecls()
 
     var transformedBody = transformNodeToDSA(method.body.get)
-    transformedBody = transformAssertStmts(transformedBody)
     transformedBody = transformIfStmts(transformedBody)
+    transformedBody = transformPreConditions(transformedBody, method.pres)
+    transformedBody = transformPostConditions(transformedBody, method.posts)
+    transformedBody = transformAssertStmts(transformedBody)
     val v1 = getFormalReturnsAfterDSA(method.formalReturns)
     formalRetDecls --= v1
     val v = Seqn(transformedBody.ss, formalRetDecls.toSeq ++ localVarDecls.toSeq)()
