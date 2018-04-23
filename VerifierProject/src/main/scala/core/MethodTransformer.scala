@@ -107,6 +107,16 @@ class MethodTransformer {
     node.transform(pre)
   }
 
+  private def transformPreConditions(methodBody: Seqn, pres: Seq[Exp]): Seqn = {
+    val transformedPres = pres.map(p => renameVarUseInExpression(p))
+    Seqn(transformedPres.map(p => Inhale(p)()) ++ methodBody.ss, Seq())()
+  }
+
+  private def transformPostConditions(methodBody: Seqn, posts: Seq[Exp]): Seqn = {
+    val transformedPosts = posts.map(p => renameVarUseInExpression(p))
+    Seqn(methodBody.ss ++ transformedPosts.map(p => Assert(p)(p.pos, p.info)), Seq())()
+  }
+
   private def transformIfToDSA(ifStmt: If): If = {
     // Transform the if condition and take a snapshot of the variables' versions.
     val transformedIfCondition = renameVarUseInExpression(ifStmt.cond)
@@ -179,8 +189,10 @@ class MethodTransformer {
     versionOriginalVarDecls()
 
     var transformedBody = transformNodeToDSA(method.body.get)
-    transformedBody = transformAssertStmts(transformedBody)
     transformedBody = transformIfStmts(transformedBody)
+    transformedBody = transformPreConditions(transformedBody, method.pres)
+    transformedBody = transformPostConditions(transformedBody, method.posts)
+    transformedBody = transformAssertStmts(transformedBody)
     val v1 = getFormalReturnsAfterDSA(method.formalReturns)
     formalRetDecls --= v1
     val v = Seqn(transformedBody.ss, formalRetDecls.toSeq ++ localVarDecls.toSeq)()
