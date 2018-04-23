@@ -11,8 +11,7 @@ import viper.silver.verifier.{VerificationResult, errors, reasons, Failure => Vi
 import viper.silver.{ast => sil}
 import sil._
 
-import scala.collection.mutable.ListBuffer
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{ArrayBuffer, HashMap, ListBuffer}
 import scala.sys.process.{ProcessIO, _}
 
 
@@ -96,6 +95,72 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
         println(transformer.transform(m))
     }
 
+    var failures = new ArrayBuffer[AbstractVerificationError]()
+    var axioms: Seq[DomainAxiom] // TODO: Collect axioms
+    var converted_axioms = axioms.map(a => ViperToSMTConverter.convertAxiom(a))
+
+    program.methods.foreach(m => {
+      var method_body = getMethodBody(m)
+      var declarations: Seq[Command] // TODO: Collect declarations for method
+
+      var wlp_applied = WlpStar.wlp(method_body)
+      var attach_error = ErrorsAttachment.attach(mapping, wlp_applied)
+      var expressions = ViperToSMTConverter.ConvertMethodBody(attach_error)
+
+      var loc_failures = new ArrayBuffer[AbstractVerificationError]()
+      expressions.forall(e => {
+        val error = checkForSuccess(e, axioms, declarations, program)
+        if (error.nonEmpty)
+          failures += error.get
+      })
+
+      failures ++= loc_failures
+    }
+
+
+    // if we detected errors than return failure with them otherwise success
+    if(failures.nonEmpty)
+      ViperFailure(failures)
+    else
+      ViperSuccess
+  }
+
+  def getMethodBody(method : sil.Method) : Seqn = {
+    // TODO: Do the conversion of method here and return Seqn of statements inside method
+  }
+
+  /*
+   * Checks given expression together with declarions and axioms with smt solver. In case of error returns Some[error] otherwise None.
+   *
+   * @param expr          Pair of expression to evaluate and error it can cause
+   * @param axioms        Converted axioms of viper program
+   * @param declarations  Sequence of variable and funcion declarations
+   * @param program       Used for creating internal error
+   */
+  def checkForSuccess(expr: SMTExpression, axioms: Seq[Term], declarations: Seq[Command], program: sil.Program) : Option[AbstractVerificationError] = {
+    // each axiom is precodition to expression
+    val query = axioms.forall(a => Commands.Assert(a) ++ Commands.Assert(Not(expr.expr)) :: CheckSat() :: List())
+    val smt_result = runSMT(declarations, query)
+    smt_result match {
+      case CheckSatStatus(SatStatus) | CheckSatStatus(UnknownStatus) => // both unknown and sat should be treated as failed attempts to prove unsat
+        Some(expr.error)
+      // usually unsat is the result that means the entailment your checking holds - this is the successful case
+      case CheckSatStatus(UnsatStatus) =>
+        None
+
+      // some kind of unusual error (e.g. the smt solver didn't understand the input)
+      case res@_ =>
+        errors.Internal(program, reasons.InternalReason(program, "Unexpected response from Z3: " + res.toString))
+    }
+  }
+  /*
+   *  Runs Z3 with provided variable and function declarations and given sequence of queries.
+   *
+   *  @param declarations   Sequence of variable and funcion declarations
+   *  @param query          Sequence of queries (ie. asserts) to check for
+   *  @return               Result of SMT
+   */
+  def runSMT(declarations: Seq[Command], query: Seq[Command]) : CheckSatResponse = {
     val defaultOptions = Seq("-smt2") // you may want to pass more options to z3 here, or do it via the command-line argument z3Args
 
     // here is a reasonable initial configuration for z3. If you're interested, you can check out the options in the Z3 documentation (some are also visible from z3 /pd etc.)
@@ -121,17 +186,11 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
         |
         |""".stripMargin
 
-    // You can decide between writing your smt queries directly as Strings (as in the prelude above), or using the scala-smtlib library to build them up as an AST which you then print. Or indeed, you can mix both approaches, as below
-    // You will want to change this query to represent the verification conditions for your input program
-    val toyQuery = smtlib.parser.Commands.Assert(Core.BoolConst(false)) :: CheckSat() :: List()
-    // when printed via "mkString" (to convert the list of Strings into one), this will give the String "(assert false)\n(check-sat)\n"
-
-
     // write program to a temporary file (name will be an auto-generated variant of the first parameter string)
     val tmp = File.createTempFile("mytempfile", ".smt2")
     tmp.deleteOnExit()
     val stream = new BufferedOutputStream(new FileOutputStream(tmp))
-    val inputString : String = smtPrelude + toyQuery.mkString
+    val inputString : String = smtPrelude + declarations.mkString + query.mkString
 
     if(config.printSMT.getOrElse(false)) { // print the smt output if the command-line option was specified
       println(inputString)
@@ -179,89 +238,7 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     val dummyAssert : sil.Assert = sil.Assert(sil.TrueLit()())() // Viper (sil) nodes typically take a second argument set, allowing the specification of positional and other auxiliary information. These arguments can be left blank (in which case defaults are inserted), but the parentheses are still necessary.
 
     // we use a scala-smtlib function to parse the response
-    val z3Response: CheckSatResponse  = parser.parseCheckSatResponse
-
-    // Build a corresponding Viper VerificationResult, depending on the response from Z3:
-    val viperResult : VerificationResult = z3Response match {
-    case CheckSatStatus(SatStatus) | CheckSatStatus(UnknownStatus) => // both unknown and sat should be treated as failed attempts to prove unsat
-      ViperFailure(Seq(errors.AssertFailed(dummyAssert,reasons.FeatureUnsupported(dummyAssert, "Actual verification isn't implemented yet"))))
-
-    // usually unsat is the result that means the entailment your checking holds - this is the successful case
-    case CheckSatStatus(UnsatStatus) =>
-      ViperSuccess
-
-    // some kind of unusual error (e.g. the smt solver didn't understand the input)
-    case res@_ =>
-      ViperFailure(Seq(errors.Internal(program,reasons.InternalReason(program, "Unexpected response from Z3: " + res.toString))))
-    }
-
-    viperResult match {
-      case failure: ViperFailure => logger.info(s"Failure: $failure")
-      case ViperSuccess => logger.info("Success")
-    }
-    viperResult
-  }
-
-  /*
-  * Assumes seqn is body of method that is already converted in DSA and contains only
-  * {assert, assume, if(with appended assumes as condition in both branches)} and pre and post conditions appended
-  * as first respectively last statements.
-  * */
-  def wlp(seqn: Seqn) : ListBuffer[sil.Exp] = {
-    var delta = new ListBuffer[sil.Exp]()
-    delta = wlp_star_seq(seqn, delta)
-    delta
-  }
-
-  /*
-  * Creates delta set from sequence. Takes existing delta set as parameter and returns new one.
-  * */
-  def wlp_star_seq(seqn: Seqn,  delta : ListBuffer[sil.Exp]) : ListBuffer[sil.Exp] = seqn match {
-    case Seqn(statements, variableDeclarations) => {
-      // println("case seqn: " + statements)
-      // Viper sequential composition (which can be treated as a scope) takes a Scala
-      // Seq of Stmt elements and variable declarations.
-      var new_delta = delta
-      for(stmt <- statements.reverse){
-        new_delta = wlp_star(stmt, new_delta)
-      }
-      // println("delta: " + new_delta)
-      new_delta
-    }
-    case _ => throw new Exception("wpl_wrapper: no case matched with : " + seqn)
-  }
-
-  /*
-  * Converts statement according to previous delta set and returns new one.
-  * */
-  def wlp_star(stmt : sil.Stmt,  delta : ListBuffer[sil.Exp]) : ListBuffer[sil.Exp] = {
-    stmt match {
-      case sil.Assert(expression) => {              // in assert we just append to set
-        //println("case assert: " + expression)
-        var new_delta = delta
-        new_delta += expression
-        //println("delta: " + new_delta)
-        new_delta
-      }
-      case Inhale(expression) => {                  // in assume we add A1 => A for every A from delta where A1 is expression in assume
-        //println("case assume: " + expression)
-        var new_delta = new ListBuffer[sil.Exp]()
-        for(expr <- delta){
-          new_delta += sil.Implies(expression, expr)()
-        }
-        //println("delta: " + new_delta)
-        new_delta
-      }
-      case If(condition, ifTrue, ifFalse) => {      // in if we just simply convert both blocks from delta and new delta is union of the two
-          //println("case if: " + condition)
-          var new_delta = new ListBuffer[sil.Exp]()
-          new_delta ++= wlp_star_seq(ifTrue, delta)
-          new_delta ++= wlp_star_seq(ifFalse, delta)
-          //println("delta: " + new_delta)
-          new_delta
-      }
-      case _ => throw new Exception("wpl_star: no case matched with : " + stmt)
-    }
+    parser.parseCheckSatResponse
   }
   // utility method for reading the input stream into a String
   def convertStreamToString(is: java.io.InputStream) : String = {
