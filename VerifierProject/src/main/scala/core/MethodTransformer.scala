@@ -15,6 +15,7 @@ class MethodTransformer {
   private var formalRetDecls: mutable.Set[LocalVarDecl] = _
   private var localVarDecls: mutable.Set[LocalVarDecl] = _
 
+  // TODO ignore quantified variables in foralls and exists
   private def getLocalVarDecls(stmt: Stmt): Set[LocalVarDecl] = {
     val decls = mutable.Set[LocalVarDecl]()
     stmt.visit({ case stm: LocalVarDecl => decls.add(stm) })
@@ -70,9 +71,19 @@ class MethodTransformer {
     LocalVar(varVersioning.getLastIdentifier(localVar.name))(localVar.typ)
   }
 
-  private def renameVarUseInExpression(exp: Exp): Exp = {
+  private def renameVarUseInExpression(exp: Exp, quantifiedVars: Seq[String]=Seq()): Exp = {
     val pre: PartialFunction[Node, Node] = {
-      case node: LocalVar => renameVarUse(node)
+      case f@Forall(variables, triggers: Seq[Trigger], fexp) =>
+        val newQuantifiedVars = quantifiedVars ++ variables.map(d => d.name)
+        Forall(variables,
+          triggers.map(t => Trigger(t.exps.map(texp => renameVarUseInExpression(texp, newQuantifiedVars)))(t.pos, t.info)),
+          renameVarUseInExpression(fexp, newQuantifiedVars))(f.pos, f.info)
+      case ex@Exists(variables, exexp) =>
+        val newQuantifiedVars = quantifiedVars ++ variables.map(d => d.name)
+        Exists(variables, renameVarUseInExpression(exexp, newQuantifiedVars))(ex.pos, ex.info)
+      case node: LocalVar =>
+        if (quantifiedVars.contains(node.name)) node
+        else renameVarUse(node)
     }
 
     exp.transform(pre)
