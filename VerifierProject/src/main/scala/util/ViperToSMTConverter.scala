@@ -12,20 +12,24 @@ import smtlib.theories.Core
 import smtlib.theories.Ints
 import viper.silver.verifier.AbstractVerificationError
 
-case class SMTExpression(error: AbstractVerificationError, expr: Terms.Term)
-
 object ViperToSMTConverter {
 
+  /*
+   * Converts provided axiom into SMT syntax.
+   *
+   * @param ax  viper.silver.ast.DomainAxiom node
+   * @return    converted node in SMT
+   */
   def convertAxiom(ax: DomainAxiom) : Terms.Term = {
     exprToTerm(ax.exp)
   }
 
-  def convertMethodBody(exprs: Seq[ViperExpression]) : Seq[SMTExpression] = {
-    exprs.map(e => e match {
-      case ViperExpression(err, expr) => SMTExpression(err, exprToTerm(expr))
-    })
-  }
-
+  /*
+   * Converts silver expression into SMT one
+   *
+   * @param expr viper.silver.ast.Exp node
+   * @return     converted node in SMT
+   */
   def exprToTerm(expr : Exp) : Terms.Term = {
     expr match {
       // literals
@@ -86,22 +90,30 @@ object ViperToSMTConverter {
     }
   }
 
-  // shortcut for creating quantified ident.
+  /*
+   * shortcut for creating quantified ident.
+   */
   def quantIdent(name: String) : QualifiedIdentifier = {
     QualifiedIdentifier(SimpleIdentifier(SSymbol(name)))
   }
 
-  // prefixes the function name
+  /*
+   * prefixes the function name
+   */
   def func_prefix(fname: String) : String = {
     "func_" + fname
   }
 
-  // prefixes the variable name
+  /*
+   * prefixes the variable name
+   */
   def var_prefix(vname: String) : String = {
     "var_" + vname
   }
 
-  // adds prioritly triggers if no are provided than tries to add implicit triggers
+  /*
+   * Adds prioritly triggers if no are provided then tries to add implicit triggers
+   */
   def add_triggers(term: Terms.Term, triggers: Seq[Trigger], impl_triggers: Seq[Trigger]) : Terms.Term = {
     if(triggers.nonEmpty){
       Terms.AnnotatedTerm(term, toAttribute(triggers.head), triggers.tail.map(t => toAttribute(t)))
@@ -111,7 +123,9 @@ object ViperToSMTConverter {
       term
   }
 
-  // converts trigger to attribute
+  /*
+   * Converts trigger to attribute.
+   */
   def toAttribute(trigger: Trigger) : Terms.Attribute = {
     Attribute(
       SKeyword("pattern"),
@@ -119,12 +133,16 @@ object ViperToSMTConverter {
     )
   }
 
-  // creates sorted variable from LocalVarDecl
+  /*
+   * Creates sorted variable from LocalVarDecl.
+   */
   def createSortedVar(loc_var: LocalVarDecl) : Terms.SortedVar = {
     Terms.SortedVar(SSymbol(var_prefix(loc_var.name)), getSort(loc_var.typ))
   }
 
-  // gets sort according to type
+  /*
+   * gets sort according to type
+   */
   def getSort(sort: Type) : Terms.Sort = sort match {
     case Int => Sort(SimpleIdentifier(SSymbol("Int")))
     case Bool => Sort(SimpleIdentifier(SSymbol("Bool")))

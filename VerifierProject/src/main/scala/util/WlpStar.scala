@@ -5,6 +5,7 @@ import viper.silver.{ast => sil} // rename package, so that we can write viper.A
 import sil._
 import viper.silver.verifier.AbstractVerificationError
 import smtlib.parser.Terms
+import smtlib.theories.Core
 
 case class SMTExpression(error: AbstractVerificationError, term: Terms.Term)
 
@@ -46,7 +47,7 @@ object WlpStar {
       case sil.Assert(expression) => {
         //println("case assert: " + expression)
         var new_delta = delta
-        new_delta += SMTExpression(a.info.asInstanceOf[ErrorInfo].error, ViperToSMTConverter.exprToTerm(expression))
+        new_delta += SMTExpression(expression.info.asInstanceOf[ErrorInfo].error, ViperToSMTConverter.exprToTerm(expression))
         //println("delta: " + new_delta)
         new_delta
       }
@@ -58,8 +59,8 @@ object WlpStar {
         var new_delta = new ListBuffer[SMTExpression]()
         val expr_term = ViperToSMTConverter.exprToTerm(expression)
         for(expr <- delta){
-          new_delta += SMTExpression(expr.info.asInstanceOf[ErrorInfo].error,
-            sil.Implies(expr_term, expr.term))
+          new_delta += SMTExpression(expr.error,
+                          Core.Implies(expr_term, expr.term))
         }
         //println("delta: " + new_delta)
         new_delta
