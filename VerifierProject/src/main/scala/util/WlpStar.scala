@@ -4,8 +4,9 @@ import scala.collection.mutable.ListBuffer
 import viper.silver.{ast => sil} // rename package, so that we can write viper.Assert etc. to select the Viper type, rather than the scala-smtlib one
 import sil._
 import viper.silver.verifier.AbstractVerificationError
+import smtlib.parser.Terms
 
-case class ViperExpression(error: AbstractVerificationError, expr: sil.Exp)
+case class SMTExpression(error: AbstractVerificationError, term: Terms.Term)
 
 object WlpStar {
 
@@ -14,8 +15,8 @@ object WlpStar {
     * {assert, assume, if(with appended assumes as condition in both branches)} and pre and post conditions appended
     * as first respectively last statements.
     * */
-  def wlp(seqn: Seqn) : ListBuffer[sil.Exp] = {
-    var delta = new ListBuffer[sil.Exp]()
+  def wlp(seqn: Seqn) : ListBuffer[SMTExpression] = {
+    var delta = new ListBuffer[SMTExpression]()
     delta = wlp_star_seq(seqn, delta)
     delta
   }
@@ -23,7 +24,7 @@ object WlpStar {
   /*
   * Creates delta set from sequence. Takes existing delta set as parameter and returns new one.
   * */
-  private def wlp_star_seq(seqn: Seqn,  delta : ListBuffer[sil.Exp]) : ListBuffer[sil.Exp] = seqn match {
+  private def wlp_star_seq(seqn: Seqn,  delta : ListBuffer[SMTExpression]) : ListBuffer[SMTExpression] = seqn match {
     case Seqn(statements, variableDeclarations) => {
       // println("case seqn: " + statements)
       var new_delta = delta
@@ -39,26 +40,33 @@ object WlpStar {
   /*
   * Converts statement according to previous delta set and returns new one.
   * */
-  private def wlp_star(stmt : sil.Stmt,  delta : ListBuffer[sil.Exp]) : ListBuffer[sil.Exp] = {
+  private def wlp_star(stmt : sil.Stmt,  delta : ListBuffer[SMTExpression]) : ListBuffer[SMTExpression] = {
     stmt match {
-      case sil.Assert(expression) => {              // in assert we just append to set
+      // in assert we just append converted smt expression to delta
+      case sil.Assert(expression) => {
         //println("case assert: " + expression)
         var new_delta = delta
-        new_delta += expression
+        new_delta += SMTExpression(a.info.asInstanceOf[ErrorInfo].error, ViperToSMTConverter.exprToTerm(expression))
         //println("delta: " + new_delta)
         new_delta
       }
-      case Inhale(expression) => {                  // in assume we add A1 => A for every A from delta where A1 is expression in assume
+
+      // in assume we add A1 => A for every A from delta where A1 is expression in assume
+      // however first we need to convert A1 to term and propagate error to newly created SMTExpression
+      case Inhale(expression) => {
         //println("case assume: " + expression)
-        var new_delta = new ListBuffer[sil.Exp]()
+        var new_delta = new ListBuffer[SMTExpression]()
+        val expr_term = ViperToSMTConverter.exprToTerm(expression)
         for(expr <- delta){
-          new_delta += sil.Implies(expression, expr)()
+          new_delta += SMTExpression(expr.info.asInstanceOf[ErrorInfo].error,
+            sil.Implies(expr_term, expr.term))
         }
         //println("delta: " + new_delta)
         new_delta
       }
-      case If(condition, ifTrue, ifFalse) => {      // in if we just simply convert both blocks from delta and new delta is union of the two
-        //println("case if: " + condition)
+
+      // in we just simply convert both blocks from delta and return them
+      case If(condition, ifTrue, ifFalse) => {
         wlp_star_seq(ifTrue, delta) ++ wlp_star_seq(ifFalse, delta)
       }
       case _ => throw new Exception("wpl_star: no case matched with : " + stmt)
