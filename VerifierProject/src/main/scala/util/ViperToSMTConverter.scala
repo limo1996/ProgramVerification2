@@ -112,6 +112,13 @@ object ViperToSMTConverter {
   }
 
   /*
+   * prefixes the sort name
+   */
+  def sort_prefix(sname: String) : String = {
+    "sort_" + sname
+  }
+
+  /*
    * Adds prioritly triggers if no are provided then tries to add implicit triggers
    */
   def add_triggers(term: Terms.Term, triggers: Seq[Trigger], impl_triggers: Seq[Trigger]) : Terms.Term = {
@@ -146,7 +153,7 @@ object ViperToSMTConverter {
   def getSort(sort: Type) : Terms.Sort = sort match {
     case Int => Sort(SimpleIdentifier(SSymbol("Int")))
     case Bool => Sort(SimpleIdentifier(SSymbol("Bool")))
-    case dt: DomainType => Sort(SimpleIdentifier(SSymbol("sort_" + dt.domainName)))
+    case dt: DomainType => Sort(SimpleIdentifier(SSymbol(ViperToSMTConverter.sort_prefix(dt.domainName))))
     case _ => throw new Exception("getSort: Unsupported case: " + sort)
   }
 }

@@ -148,9 +148,9 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     var locals = getLocals(method) ++ method.formalArgs ++ method.formalReturns
 
     // collect locals
-    locals.map(l => DeclareConst(SSymbol("var_" + l.name), ViperToSMTConverter.getSort(l.typ))) ++
+    locals.map(l => DeclareConst(SSymbol(ViperToSMTConverter.var_prefix(l.name)), ViperToSMTConverter.getSort(l.typ))) ++
       // collect domains as new sorts
-      program.domains.map(d => DeclareSort(SSymbol("sort_" + d.name), 0)) ++
+      program.domains.map(d => DeclareSort(SSymbol(ViperToSMTConverter.sort_prefix(d.name)), 0)) ++
         // collect functions of domains as unint. func.
         program.domains.flatMap(d => d.functions.map(f =>
           DeclareFun(SSymbol(ViperToSMTConverter.func_prefix(f.name)),
