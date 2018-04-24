@@ -70,6 +70,8 @@ object WlpStar {
       case If(condition, ifTrue, ifFalse) => {
         wlp_star_seq(ifTrue, delta) ++ wlp_star_seq(ifFalse, delta)
       }
+
+      case s@Seqn(_,_) => wlp_star_seq(s, delta)
       case _ => throw new Exception("wpl_star: no case matched with : " + stmt)
     }
   }
