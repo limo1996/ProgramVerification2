@@ -147,15 +147,15 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
   def collectDeclarations(program: sil.Program, method: sil.Method) : Seq[Command] = {
     var locals = getLocals(method) ++ method.formalArgs ++ method.formalReturns
 
-    // collect locals
-    locals.map(l => DeclareConst(SSymbol(ViperToSMTConverter.var_prefix(l.name)), ViperToSMTConverter.getSort(l.typ))) ++
-      // collect domains as new sorts
-      program.domains.map(d => DeclareSort(SSymbol(ViperToSMTConverter.sort_prefix(d.name)), 0)) ++
-        // collect functions of domains as unint. func.
-        program.domains.flatMap(d => d.functions.map(f =>
-          DeclareFun(SSymbol(ViperToSMTConverter.func_prefix(f.name)),
-                    f.formalArgs.map(fa => ViperToSMTConverter.getSort(fa.typ)),
-                    ViperToSMTConverter.getSort(f.typ))))
+    // collect domains as new sorts
+    program.domains.map(d => DeclareSort(SSymbol(ViperToSMTConverter.sort_prefix(d.name)), 0)) ++
+      // collect functions of domains as unint. func.
+      program.domains.flatMap(d => d.functions.map(f =>
+        DeclareFun(SSymbol(ViperToSMTConverter.func_prefix(f.name)),
+          f.formalArgs.map(fa => ViperToSMTConverter.getSort(fa.typ)),
+          ViperToSMTConverter.getSort(f.typ)))) ++
+            // collect locals
+            locals.map(l => DeclareConst(SSymbol(ViperToSMTConverter.var_prefix(l.name)), ViperToSMTConverter.getSort(l.typ)))
 
   }
 
