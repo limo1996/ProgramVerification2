@@ -3,13 +3,18 @@ package core
 import java.io.{BufferedOutputStream, File, FileOutputStream}
 
 import ch.qos.logback.classic.Logger
+import smtlib.parser.Commands
 import smtlib.parser.Commands._
 import smtlib.parser.CommandsResponses._
 import smtlib.theories.Core
+import smtlib.parser.Terms._
 import viper.silver.verifier.AbstractVerificationError
 import viper.silver.verifier.{VerificationResult, errors, reasons, Failure => ViperFailure, Success => ViperSuccess}
 import viper.silver.{ast => sil}
 import sil._
+
+import smtlib.parser.Terms
+import util._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, ListBuffer}
 import scala.sys.process.{ProcessIO, _}
@@ -88,34 +93,38 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
       return failure
     }
 
+    // unfold loops, add pre and post conditions, DSA etc.
     val transformer = new MethodTransformer()
+    val methods = program.methods.map(m => transformer.transform(m))
 
+    // print converted version if requested
     if (config.printDSA.getOrElse(false)) {
-      for (m <- program.methods)
-        println(transformer.transform(m))
+      methods.foreach(m => println(m))
     }
 
     var failures = new ArrayBuffer[AbstractVerificationError]()
-    var axioms: Seq[DomainAxiom] // TODO: Collect axioms
-    var converted_axioms = axioms.map(a => ViperToSMTConverter.convertAxiom(a))
+    // collect axioms from all
+    var axioms = program.domains.flatMap(d =>
+      d.axioms.map(a => ViperToSMTConverter.convertAxiom(a)))
 
-    program.methods.foreach(m => {
-      var method_body = getMethodBody(m)
-      var declarations: Seq[Command] // TODO: Collect declarations for method
 
-      var wlp_applied = WlpStar.wlp(method_body)
-      var attach_error = ErrorsAttachment.attach(mapping, wlp_applied)
-      var expressions = ViperToSMTConverter.ConvertMethodBody(attach_error)
+    methods.foreach(m => {
+      if(m.body.isDefined) {
+        var method_body = m.body.get
+        var declarations = collectDeclarations(program, m)
 
-      var loc_failures = new ArrayBuffer[AbstractVerificationError]()
-      expressions.forall(e => {
-        val error = checkForSuccess(e, axioms, declarations, program)
-        if (error.nonEmpty)
-          failures += error.get
-      })
+        var expressions = WlpStar.wlp(method_body)
+        var loc_failures = new ArrayBuffer[AbstractVerificationError]()
+        expressions.foreach(e => {
+          val error = checkForSuccess(e, axioms, declarations, program)
+          if (error.isDefined)
+            failures += error.get
+          true
+        })
 
-      failures ++= loc_failures
-    }
+        failures ++= loc_failures
+      }
+    })
 
 
     // if we detected errors than return failure with them otherwise success
@@ -125,8 +134,39 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
       ViperSuccess
   }
 
-  def getMethodBody(method : sil.Method) : Seqn = {
-    // TODO: Do the conversion of method here and return Seqn of statements inside method
+  /*
+   * Collects declarations from viper. It includes:
+   *  - local variables defined within the scope of method
+   *  - domains as new sorts
+   *  - functions in domains that are treted as uninterpreted functions
+   *
+   *  @param  program Viper ast for input program
+   *  @param  method  Method from which we collect local vars
+   *  @return Sequence of converted commands(declarations in SMT)
+   */
+  def collectDeclarations(program: sil.Program, method: sil.Method) : Seq[Command] = {
+    var locals = getLocals(method) ++ method.formalArgs ++ method.formalReturns
+
+    // collect locals
+    locals.map(l => DeclareConst(SSymbol("sort_" + l.name), ViperToSMTConverter.getSort(l.typ))) ++
+      // collect domains as new sorts
+      program.domains.map(d => DeclareSort(SSymbol("sort_" + d.name), 0)) ++
+        // collect functions of domains as unint. func.
+        program.domains.flatMap(d => d.functions.map(f =>
+          DeclareFun(SSymbol(ViperToSMTConverter.func_prefix(f.name)),
+                    f.formalArgs.map(fa => ViperToSMTConverter.getSort(fa.typ)),
+                    ViperToSMTConverter.getSort(f.typ))))
+
+  }
+
+  /**
+    * Extracts local var declarations from method body.
+    *
+    * @param method from which will be local declarations extracted
+    * @return       Sequence of local variable declarations in method body
+    */
+  def getLocals(method: sil.Method) : Seq[LocalVarDecl] = {
+    method.body.get.scopedDecls.map(d => d.asInstanceOf[LocalVarDecl])
   }
 
   /*
@@ -136,10 +176,11 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
    * @param axioms        Converted axioms of viper program
    * @param declarations  Sequence of variable and funcion declarations
    * @param program       Used for creating internal error
+   * @return              Verification error if any
    */
   def checkForSuccess(expr: SMTExpression, axioms: Seq[Term], declarations: Seq[Command], program: sil.Program) : Option[AbstractVerificationError] = {
     // each axiom is precodition to expression
-    val query = axioms.forall(a => Commands.Assert(a) ++ Commands.Assert(Not(expr.expr)) :: CheckSat() :: List())
+    val query = axioms.map(a => Commands.Assert(a)) ++ (Commands.Assert(Core.Not(expr.term)) :: CheckSat() :: List())
     val smt_result = runSMT(declarations, query)
     smt_result match {
       case CheckSatStatus(SatStatus) | CheckSatStatus(UnknownStatus) => // both unknown and sat should be treated as failed attempts to prove unsat
@@ -150,7 +191,7 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
 
       // some kind of unusual error (e.g. the smt solver didn't understand the input)
       case res@_ =>
-        errors.Internal(program, reasons.InternalReason(program, "Unexpected response from Z3: " + res.toString))
+        Some(errors.Internal(program, reasons.InternalReason(program, "Unexpected response from Z3: " + res.toString)))
     }
   }
   /*
