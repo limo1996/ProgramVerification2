@@ -224,6 +224,7 @@ class MethodTransformer {
   }
 
   def transform(method: Method): Method = {
+    errorInfoTagger = new ErrorInfoTagger
     varVersioning = new DSAVarVersioning()
     collectOriginalMethodVarDecls(method)
     versionOriginalVarDecls()
