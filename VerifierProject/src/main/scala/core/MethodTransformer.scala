@@ -1,6 +1,6 @@
 package core
 
-import util.DSAVarVersioning
+import util.{DSAVarVersioning, ErrorInfoTagger}
 import viper.silver.ast._
 import viper.silver.ast.utility.Rewriter.Traverse
 
@@ -8,6 +8,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class MethodTransformer {
+  private var errorInfoTagger: ErrorInfoTagger = _
   private var varVersioning: DSAVarVersioning = _
   private var formalArgDecls: Set[LocalVarDecl] = _
   private var originalFormalRetDecls: Set[LocalVarDecl] = _
@@ -184,11 +185,11 @@ class MethodTransformer {
     }
 
     val transformed = Seqn(
-      invariantsToEstablish.map(inv => Assert(inv)()) ++
+      invariantsToEstablish.map(inv => Assert(errorInfoTagger.addInvariantNotEstablishedErrorInfo(inv))()) ++
       Seq(
         If(transformedLoopCondition,
           Seqn(Seq(Inhale(And(conjunctExpressions(invariantsToAssume), transformedLoopCondition)())(), transformedLoopBody)
-              ++ invariantsToPreserve.map(inv => Assert(inv)())
+              ++ invariantsToPreserve.map(inv => Assert(errorInfoTagger.addInvariantNotPreservedErrorInfo(inv))())
               ++ Seq(Inhale(FalseLit()())())
           , Seq())(),
           Seqn(Seq(Inhale(And(conjunctExpressions(invariantsToAssume), Not(transformedLoopCondition)())())()), Seq())()
@@ -225,19 +226,21 @@ class MethodTransformer {
 
   def transform(method: Method): Method = {
     errorInfoTagger = new ErrorInfoTagger
-    varVersioning = new DSAVarVersioning()
-    collectOriginalMethodVarDecls(method)
+    val taggedMethod = errorInfoTagger.addErrorInfo(method)
+
+    varVersioning = new DSAVarVersioning
+    collectOriginalMethodVarDecls(taggedMethod)
     versionOriginalVarDecls()
 
-    var transformedBody = transformNodeToDSA(method.body.get)
+    var transformedBody = transformNodeToDSA(taggedMethod.body.get)
     transformedBody = transformIfStmts(transformedBody)
-    transformedBody = transformPreConditions(transformedBody, method.pres)
-    transformedBody = transformPostConditions(transformedBody, method.posts)
+    transformedBody = transformPreConditions(transformedBody, taggedMethod.pres)
+    transformedBody = transformPostConditions(transformedBody, taggedMethod.posts)
     transformedBody = transformAssertStmts(transformedBody)
-    val v1 = getFormalReturnsAfterDSA(method.formalReturns)
+    val v1 = getFormalReturnsAfterDSA(taggedMethod.formalReturns)
     formalRetDecls --= v1
     val v = Seqn(transformedBody.ss, formalRetDecls.toSeq ++ localVarDecls.toSeq)()
 
-    Method(method.name, method.formalArgs, v1, Seq(), Seq(), Some(v))()
+    Method(taggedMethod.name, taggedMethod.formalArgs, v1, Seq(), Seq(), Some(v))()
   }
 }
