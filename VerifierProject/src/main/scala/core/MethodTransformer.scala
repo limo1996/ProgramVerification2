@@ -167,8 +167,8 @@ class MethodTransformer {
     val invariantsToEstablish = whileStmt.invs.map(inv => renameVarUseInExpression(inv))
 
     // Havoc of variables assigned in the loop is simulated by increasing their version
-    val varsAssigned = getLocalVarAssigns(whileStmt.body).map(v => v.name) -- whileStmt.body.scopedDecls.map(sv => sv.name)
-    for (v <- varsAssigned) varVersioning.getNewIdentifier(v)
+    val varsAssigned = getLocalVarAssigns(whileStmt.body).filter(v => !whileStmt.body.scopedDecls.map(d => d.name).contains(v.name))
+    for (v <- varsAssigned) renameVarDef(v)
 
     // Take snapshot of the current version of vars
     val snapshot = varVersioning.getSnapshot
