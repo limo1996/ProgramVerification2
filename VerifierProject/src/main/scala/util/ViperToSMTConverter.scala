@@ -54,7 +54,7 @@ object ViperToSMTConverter {
       case DomainFuncApp(fname, args, typeVariables) => {
         val ident = quantIdent(func_prefix(fname))
         if (args.isEmpty)   //a function application with no argument is a qualified identifier
-          ident
+          return ident
         Terms.FunctionApplication(ident, args.map(a => exprToTerm(a)))
       }
 
