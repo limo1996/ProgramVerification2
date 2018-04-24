@@ -1,0 +1,21 @@
+method bin_search(guess: Int) returns (guessed: Int)
+requires guess <= 100000 && guess >=0
+ensures guessed == guess
+{
+    var low: Int := 0
+    var high: Int := 100001
+
+    while(low < high){
+        var middle: Int := low + (high - low) / 2
+        if(guess < middle) {
+            high := middle
+        } else {
+            if (guess > middle) {
+                low := middle + 1
+            } else {
+                guessed := middle
+                low := high
+            }
+        }
+    }
+}
