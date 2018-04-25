@@ -1,0 +1,30 @@
+method test() 
+{
+    // Commutativity
+    assert forall x: Bool, y: Bool :: (x && y) == (y && x)
+    assert forall x: Bool, y: Bool :: (x || y) == (y || x)
+
+    // Associativity
+    assert forall x: Bool, y: Bool, z: Bool :: (x || (y || z)) == ((x || y) || z)
+    assert forall x: Bool, y: Bool, z: Bool :: (x && (y && z)) == ((x && y) && z)
+
+    // Distributivity
+    assert forall x: Bool, y: Bool, z: Bool :: (x && (y || z)) == ((x && y) || (x && z))
+    assert forall x: Bool, y: Bool, z: Bool :: (x || (y && z)) == ((x || y) && (x || z))
+    
+    // Identity
+    assert forall x: Bool :: (x && true) == x
+    assert forall x: Bool :: (x || false) == x
+
+    // Annihilator
+    assert forall x: Bool :: (x && false) == false
+    assert forall x: Bool :: (x || true) == true
+
+    // Indempotence
+    assert forall x: Bool :: (x && x) == x
+    assert forall x: Bool :: (x || x) == x
+
+    // Absorbtion
+    assert forall x: Bool, y: Bool :: (x && (x || y)) == x
+    assert forall x: Bool, y: Bool :: (x || (x && y)) == x
+}

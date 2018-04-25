@@ -1,0 +1,12 @@
+method test()
+{
+    // Weird behaviour
+    //assert forall x: Int, y: Int :: y != 0 ==> (x * y) / y == x
+    assert forall x: Int, y: Int :: x >= 0 && y >= 0 ==> x <= x + y
+    assert forall x: Int, y: Int :: x * y == y * x
+    assert forall x: Int, y: Int :: x + y == y + x
+    assert forall x: Int, y: Int, z: Int :: (x + y) + z == x + (y + z)
+    assert forall x: Int, y: Int, z: Int :: (x * y) * z == x * (y * z)
+    assert forall x: Int, y: Int :: x + y - y == x
+    assert forall x: Int :: x * 0 == 0
+}

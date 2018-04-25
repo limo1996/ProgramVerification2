@@ -3,7 +3,9 @@
 method test(guess: Int, up: Int, down: Int) returns (guessed: Int)
 requires guess <= up && guess > down
 requires down >= 0 && down < up
+//:: ExpectedOutput(postcondition.violated:assertion.false)
 ensures guessed > down && guessed <= up
+//:: ExpectedOutput(postcondition.violated:assertion.false)
 ensures guessed == guess
 {
     var low: Int := down

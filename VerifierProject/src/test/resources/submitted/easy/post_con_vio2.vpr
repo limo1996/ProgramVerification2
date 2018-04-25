@@ -1,1 +1,7 @@
-method te
+method test(x: Int) returns (z: Int)
+requires x >= 0
+//:: ExpectedOutput(postcondition.violated:assertion.false)
+ensures z < 0
+{
+    z := -x
+}
