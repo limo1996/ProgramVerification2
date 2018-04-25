@@ -39,13 +39,15 @@ method add(m1 : Matrix, m2: Matrix) returns (m3:Matrix)
     invariant size(m1) == size(m2) && size(m1) == size(m3)
     invariant forall x: Int, y: Int :: {select(m3,x,y)}
       inRange(m3, x, y) && x < i ==> select(m3,x,y) == select(m1,x,y) + select(m2,x,y)
-  {
+{
     j := 0
     while(j < size(m2))
-      invariant i >= 0 && i < size(m1) && j >= 0 && j <= size(m2)
+      invariant j >= 0 && j <= size(m2)
       invariant size(m1) == size(m2) && size(m1) == size(m3)
-      invariant forall x: Int, y: Int :: {select(m3,x,y)} {select(m1,x,y), select(m2,x,y)}
-        inRange(m3, x, y) && x <= i && y < j ==> select(m3,x,y) == select(m1,x,y) + select(m2,x,y)
+      invariant forall x: Int, y: Int :: {select(m3,x,y)}
+        inRange(m3, x, y) && x == i && y < j ==> select(m3,x,y) == select(m1,x,y) + select(m2,x,y)
+      invariant forall x: Int, y: Int :: {select(m3,x,y)}
+        inRange(m3, x, y) && x < i ==> select(m3,x,y) == select(m1,x,y) + select(m2,x,y)
     {
       m3 := store(m3,i,j,(select(m1,i,j) + select(m2,i,j)))
       assert select(m3,i,j) == select(m1,i,j) + select(m2,i,j) // consider: why does this fail?
@@ -58,6 +60,6 @@ method add(m1 : Matrix, m2: Matrix) returns (m3:Matrix)
 }
 
 method test() {
-    //:: ExpectedOutput(assert.failed:assertion.false)
-    assert false
+  //:: ExpectedOutput(assert.failed:assertion.false)
+  assert false
 }
