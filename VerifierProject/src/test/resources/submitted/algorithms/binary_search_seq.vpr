@@ -1,0 +1,50 @@
+/* We are trying to test contains method on sorted sequence as binary search */
+
+domain SortedSequence {
+    function size(seqn: SortedSequence) : Int
+    function empty() : SortedSequence
+    function element_at(seqn: SortedSequence, index: Int) : Int
+
+    axiom ax_size_empty {
+        forall x: SortedSequence :: {size(x)} x == empty() ==> size(x) == 0
+    }
+
+    axiom ax_empty {
+        size(empty()) == 0
+    }
+
+    axiom ax_size_nonnegative {
+        forall x: SortedSequence :: {size(x)} size(x) >= 0
+    }
+
+    axiom ax_sorted {
+        forall x: Int, seqn: SortedSequence :: x < (size(seqn) - 1) ==> element_at(seqn, x) <= element_at(seqn, x + 1)
+    }
+}
+
+method contains(seqn: SortedSequence, x: Int) returns (res:Bool)
+{
+    var low: Int := 0
+    var high: Int := size(seqn)
+    var middle: Int := 0
+    if(element_at(seqn, middle) == x){
+        res := true
+    } else {
+        res := false
+    }
+    while(low < high && res == false)
+    invariant 0 <= low && low - 1 <= middle && middle <= high && high <= size(seqn)
+    invariant element_at(seqn, middle) == x <==> res == true
+    {
+        middle := low + (high - low) / 2
+        if(element_at(seqn, middle) < x) {
+            low := middle + 1
+        } else {
+            if (element_at(seqn, middle) > x) {
+                high := middle
+            } else {
+                res := true
+            }
+        }
+    }
+}
