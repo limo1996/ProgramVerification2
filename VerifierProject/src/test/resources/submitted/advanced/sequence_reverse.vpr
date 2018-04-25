@@ -1,0 +1,50 @@
+/* We are trying to test reverse of sequence */
+
+domain Sequence {
+    function size(seqn: Sequence) : Int
+    function empty() : Sequence
+    function element_at(seqn: Sequence, index: Int) : Int
+    function set_at(seqn: Sequence, index: Int, val: Int) : Sequence
+    function reverse(seqn: Sequence) : Sequence
+
+    axiom ax_size_empty {
+        forall x: Sequence :: {size(x)} x == empty() ==> size(x) == 0
+    }
+
+    axiom ax_empty {
+        size(empty()) == 0
+    }
+
+    axiom ax_size_nonnegative {
+        forall x: Sequence :: {size(x)} size(x) >= 0
+    }
+
+    axiom ax_size_reversed {
+        forall x: Sequence :: {size(reverse(x))} {size(x)} size(reverse(x)) == size(x)
+    }
+
+    axiom ax_set_val {
+        forall v: Int, i: Int, s1: Sequence, s2: Sequence :: {element_at(set_at(s1, i, v), i), element_at(set_at(s2, i, v), i)} 
+        size(s1) > i && size(s2) > i ==> element_at(set_at(s1, i, v), i) == element_at(set_at(s2, i, v), i)
+    }
+
+    axiom ax_reversed {
+        forall i: Int, seqn: Sequence :: i >= 0 && i < size(seqn) ==> element_at(seqn, i) == element_at(reverse(seqn), size(seqn) - i - 1)
+    }
+}
+
+method check(seqn1: Sequence) {
+    // check reverse
+    var seqn2: Sequence := reverse(seqn1)
+    assert size(seqn1) == size(seqn2)
+    assert forall x: Int :: x >= 0 && x < size(seqn2) ==> element_at(seqn1, x) == element_at(seqn2, size(seqn2) - x - 1)
+    assume size(seqn1) == 5
+    assert element_at(seqn1, 1) == element_at(seqn2, 3)
+
+    // check reverse of reverse ==> is the same
+    var seqn3: Sequence := reverse(seqn2)
+    assert size(seqn3) == size(seqn1)
+    assert forall x: Int :: x >= 0 && x < size(seqn2) ==> element_at(seqn1, x) == element_at(seqn3, x)
+    assume size(seqn1) == 10
+    assert element_at(seqn1, 9) == element_at(seqn2, 9)
+}

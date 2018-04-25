@@ -1,0 +1,33 @@
+/* Binary search example with missing invariant */
+
+method test(guess: Int, up: Int, down: Int) returns (guessed: Int)
+requires guess <= up && guess > down
+requires down >= 0 && down < up
+ensures guessed > down && guessed <= up
+ensures guessed == guess
+{
+    var low: Int := down
+    var high: Int := up
+    var middle: Int := low -1
+    guessed := -1
+    while(guessed == -1)
+    //invariant guessed == -1 ==> middle != guess
+    //invariant guessed != -1 ==> guessed == guess
+    invariant guessed != -1 ==> (guessed == low || guessed == middle || guessed == high)
+    invariant down <= low && low <= guess && guess <= high && high <= up
+    invariant middle <= high
+    invariant middle >= low - 1
+    invariant middle == guess ==> guessed == guess
+    {
+        middle := low + (high - low) / 2
+        if(guess < middle) {
+            high := middle
+        } else {
+            if (guess > middle) {
+                low := middle + 1
+            } else {
+                guessed := middle
+            }
+        }
+    }
+}
