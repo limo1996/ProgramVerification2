@@ -27,12 +27,10 @@ object WlpStar {
   * */
   private def wlp_star_seq(seqn: Seqn,  delta : ListBuffer[SMTExpression]) : ListBuffer[SMTExpression] = seqn match {
     case Seqn(statements, variableDeclarations) => {
-      // println("case seqn: " + statements)
       var new_delta = delta
       for(stmt <- statements.reverse){
         new_delta = wlp_star(stmt, new_delta)
       }
-      // println("delta: " + new_delta)
       new_delta
     }
     case _ => throw new Exception("wpl_wrapper: no case matched with : " + seqn)
@@ -45,30 +43,29 @@ object WlpStar {
     stmt match {
       // in assert we just append converted smt expression to delta
       case sil.Assert(expression) => {
-        //println("case assert: " + expression)
         var new_delta = delta
         new_delta += SMTExpression(expression.info.asInstanceOf[ErrorInfo].error, ViperToSMTConverter.exprToTerm(expression))
-        //println("delta: " + new_delta)
         new_delta
       }
 
       // in assume we add A1 => A for every A from delta where A1 is expression in assume
       // however first we need to convert A1 to term and propagate error to newly created SMTExpression
       case Inhale(expression) => {
-        //println("case assume: " + expression)
         var new_delta = new ListBuffer[SMTExpression]()
         val expr_term = ViperToSMTConverter.exprToTerm(expression)
         for(expr <- delta){
           new_delta += SMTExpression(expr.error,
                           Core.Implies(expr_term, expr.term))
         }
-        //println("delta: " + new_delta)
         new_delta
       }
 
       // in we just simply convert both blocks from delta and return them
       case If(condition, ifTrue, ifFalse) => {
-        wlp_star_seq(ifTrue, delta) ++ wlp_star_seq(ifFalse, delta)
+        var new_delta = new ListBuffer[SMTExpression]()
+        new_delta ++= wlp_star_seq(ifTrue, delta)
+        new_delta ++= wlp_star_seq(ifFalse, delta)
+        new_delta
       }
 
       case s@Seqn(_,_) => wlp_star_seq(s, delta)

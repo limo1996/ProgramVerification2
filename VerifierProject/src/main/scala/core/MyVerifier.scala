@@ -107,9 +107,9 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     var axioms = program.domains.flatMap(d =>
       d.axioms.map(a => ViperToSMTConverter.convertAxiom(a)))
 
-
+    // asserts are only in methods so check them one by one
     methods.foreach(m => {
-      if(m.body.isDefined) {
+      if(m.body.isDefined) { // empty body allowed?
         var method_body = m.body.get
         var declarations = collectDeclarations(program, m)
 
@@ -119,7 +119,6 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
           val error = checkForSuccess(e, axioms, declarations, program)
           if (error.isDefined)
             failures += error.get
-          true
         })
 
         failures ++= loc_failures
@@ -128,7 +127,7 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
 
 
     // if we detected errors than return failure with them otherwise success
-    if(failures.nonEmpty)
+    if(failures.size > 0)
       ViperFailure(failures)
     else
       ViperSuccess
@@ -154,7 +153,7 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
         DeclareFun(SSymbol(ViperToSMTConverter.func_prefix(f.name)),
           f.formalArgs.map(fa => ViperToSMTConverter.getSort(fa.typ)),
           ViperToSMTConverter.getSort(f.typ)))) ++
-            // collect locals
+            // collect locals -> must be defined after sort declarations
             locals.map(l => DeclareConst(SSymbol(ViperToSMTConverter.var_prefix(l.name)), ViperToSMTConverter.getSort(l.typ)))
 
   }
@@ -165,9 +164,7 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     * @param method from which will be local declarations extracted
     * @return       Sequence of local variable declarations in method body
     */
-  def getLocals(method: sil.Method) : Seq[LocalVarDecl] = {
-    method.body.get.scopedDecls.map(d => d.asInstanceOf[LocalVarDecl])
-  }
+  def getLocals(method: sil.Method) = method.body.get.scopedDecls.map(d => d.asInstanceOf[LocalVarDecl])
 
   /*
    * Checks given expression together with declarions and axioms with smt solver. In case of error returns Some[error] otherwise None.
@@ -181,27 +178,6 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
   def checkForSuccess(expr: SMTExpression, axioms: Seq[Term], declarations: Seq[Command], program: sil.Program) : Option[AbstractVerificationError] = {
     // each axiom is precodition to expression
     val query = axioms.map(a => Commands.Assert(a)) ++ (Commands.Assert(Core.Not(expr.term)) :: CheckSat() :: List())
-    val smt_result = runSMT(declarations, query)
-    smt_result match {
-      case CheckSatStatus(SatStatus) | CheckSatStatus(UnknownStatus) => // both unknown and sat should be treated as failed attempts to prove unsat
-        Some(expr.error)
-      // usually unsat is the result that means the entailment your checking holds - this is the successful case
-      case CheckSatStatus(UnsatStatus) =>
-        None
-
-      // some kind of unusual error (e.g. the smt solver didn't understand the input)
-      case res@_ =>
-        Some(errors.Internal(program, reasons.InternalReason(program, "Unexpected response from Z3: " + res.toString)))
-    }
-  }
-  /*
-   *  Runs Z3 with provided variable and function declarations and given sequence of queries.
-   *
-   *  @param declarations   Sequence of variable and funcion declarations
-   *  @param query          Sequence of queries (ie. asserts) to check for
-   *  @return               Result of SMT
-   */
-  def runSMT(declarations: Seq[Command], query: Seq[Command]) : CheckSatResponse = {
     val defaultOptions = Seq("-smt2") // you may want to pass more options to z3 here, or do it via the command-line argument z3Args
 
     // here is a reasonable initial configuration for z3. If you're interested, you can check out the options in the Z3 documentation (some are also visible from z3 /pd etc.)
@@ -279,8 +255,21 @@ class MyVerifier(private val logger: Logger) extends BareboneVerifier {
     val dummyAssert : sil.Assert = sil.Assert(sil.TrueLit()())() // Viper (sil) nodes typically take a second argument set, allowing the specification of positional and other auxiliary information. These arguments can be left blank (in which case defaults are inserted), but the parentheses are still necessary.
 
     // we use a scala-smtlib function to parse the response
-    parser.parseCheckSatResponse
+    val smt_result = parser.parseCheckSatResponse
+
+    smt_result match {
+      case CheckSatStatus(SatStatus) | CheckSatStatus(UnknownStatus) => // both unknown and sat should be treated as failed attempts to prove unsat
+        Some(expr.error)
+      // usually unsat is the result that means the entailment your checking holds - this is the successful case
+      case CheckSatStatus(UnsatStatus) =>
+        None
+
+      // some kind of unusual error (e.g. the smt solver didn't understand the input)
+      case res@_ =>
+        Some(errors.Internal(program, reasons.InternalReason(program, "Unexpected response from Z3: " + res.toString)))
+    }
   }
+
   // utility method for reading the input stream into a String
   def convertStreamToString(is: java.io.InputStream) : String = {
     val s = new java.util.Scanner(is).useDelimiter("\\A")
