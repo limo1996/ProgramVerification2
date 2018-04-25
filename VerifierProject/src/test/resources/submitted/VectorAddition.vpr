@@ -1,0 +1,47 @@
+domain Vector {
+  function select(m: Vector, i: Int) : Int
+  function store(m:Vector, i: Int, value: Int) : Vector
+  function size(m:Vector) : Int
+
+  axiom select_store_same {
+    forall m: Vector, i: Int, v:Int :: {select(store(m,i,v),i)} inRange(m,i) ==> select(store(m,i,v),i) == v
+  }
+
+  axiom select_store_diff {
+    forall m: Vector, i1: Int, i2: Int, v : Int :: {select(store(m,i1,v),i2)} {select(m,i2),store(m,i1,v)}
+      inRange(m,i1) && inRange(m,i2) && (i1 != i2) ==> select(store(m,i1,v),i2) == select(m,i2)
+  }
+
+  axiom size_store_same {
+    forall m: Vector, i: Int, v: Int :: {size(store(m,i,v))} size(m) == size(store(m, i, v))
+  }
+}
+
+// Viper macros get inlined in advance (as part of parsing/checking the program); you don't need to do anything to support them
+define inRange(m,i) 0 <= i && i < size(m)
+
+method add(m1 : Vector, m2: Vector) returns (m3:Vector)
+  requires size(m1) >= 0
+  requires size(m1) == size(m2)
+  ensures forall x:Int :: {select(m3,x)} inRange(m1,x) ==> select(m3,x) == select(m1,x) + select(m2,x)
+{
+  assume size(m3) == size(m1) // “initialise” m3 to *some* Vector of the right size
+  var i : Int := 0
+  var j : Int
+
+  while(i < size(m1))
+    invariant i >= 0 && i <= size(m1)
+    invariant size(m1) == size(m2) && size(m1) == size(m3)
+    invariant forall x: Int :: {select(m3,x)}
+      inRange(m3,x) && x < i ==> select(m3,x) == select(m1,x) + select(m2,x)
+  {
+    m3 := store(m3,i,(select(m1,i) + select(m2,i)))
+    assert select(m3,i) == select(m1,i) + select(m2,i) // consider: why does this fail?
+    i := i + 1
+  }
+}
+
+method test() {
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert false
+}
