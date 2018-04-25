@@ -1,0 +1,11 @@
+method test(x: Int, y: Int) returns (z: Int)
+requires x == y * y
+{
+    var i : Int := y * y
+    while(i >= 0) 
+    //:: ExpectedOutput(invariant.not.preserved:assertion.false)
+    invariant i >= 0
+    {
+        i := i - 1
+    }
+}

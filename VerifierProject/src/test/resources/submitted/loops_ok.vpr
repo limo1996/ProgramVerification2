@@ -1,0 +1,11 @@
+method test(x: Int, y: Int) returns (z: Int)
+requires x >= 0 && y >= 0
+ensures z >= 0
+{
+    var i: Int := x
+    var j: Int := x + y
+    while (i < j) invariant i <= j{
+        i := i + 1
+    }
+    z := x + y
+}

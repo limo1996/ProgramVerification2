@@ -1,0 +1,14 @@
+method test(x: Int, y: Int) 
+returns(z: Int)
+requires (x < 0 && y > 0) || (x > 0 && y < 0)
+ensures z != 0
+{
+    var x2 : Int := x
+    while(x < y)
+    //:: ExpectedOutput(invariant.not.established:assertion.false)
+    invariant x2 > 0
+    {
+        x2 := x2 * x2 + y * y
+    }
+    z := 3
+}

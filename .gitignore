@@ -5,3 +5,7 @@
 tmp
 target/
 *DS_Store
+
+VerifierProject/src/test/resources/a.out
+VerifierProject/src/test/resources/tmp.cpp
+
