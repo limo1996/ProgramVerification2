@@ -1,0 +1,70 @@
+/* Represents node i a graph */
+domain Node {
+    function empty() : Node
+    function neigh_len(node: Node) : Int
+    function set_len(node: Node, size: Int) : Node
+    function neighbour_at(pos: Int, node: Node) : Node
+    function name(node: Node) : Int
+    function exists_path(node1: Node, node2: Node) : Bool
+    function set_neighbour_at(node: Node, neig: Node, at: Int) : Node
+    function equals(n1: Node, n2: Node) : Bool
+
+    axiom ax_empty_node {
+        neigh_len(empty()) == 0
+    }
+
+    axiom ax_equal {
+        forall n1: Node, n2: Node :: {equals(n1, n2)} neigh_len(n1) == neigh_len(n2) && name(n1) == name(n2) ==> equals(n1, n2)
+    }
+
+    axiom ax_len {
+        forall i: Int, node: Node ::  {neigh_len(set_len(node, i))} i >= 0 ==> neigh_len(set_len(node, i)) == i
+    }
+
+    axiom ax_neighbour {
+        forall n1: Node, n2: Node, i: Int :: {equals(neighbour_at(i, set_neighbour_at(n1, n2, i)), n2)} 
+            0 <= i && i < neigh_len(n1) ==> equals(neighbour_at(i, set_neighbour_at(n1, n2, i)), n2)
+    }
+
+    axiom ax_non_reflexive {
+        forall n: Node, i: Int :: {neighbour_at(i, n)} 0 <= i && i < neigh_len(n) ==> !equals(neighbour_at(i, n), n)
+    }
+
+    axiom ax_exists_path {
+        forall n1: Node, n2: Node :: {exists_path(n1, n2)} 
+            exists i: Int :: equals(neighbour_at(i, n1), n2) ==> exists_path(n1, n2) 
+    }
+
+    axiom ax_exists_path_transitive {
+        forall n1: Node, n3: Node :: {exists_path(n1, n3)} exists n2: Node ::
+                exists_path(n1, n2) && exists_path(n2, n3) ==> exists_path(n1, n3)
+    }
+
+    
+}
+
+method Test(n1: Node, n2: Node, n3: Node, n4: Node)
+{
+    assume neigh_len(n1) == 1
+    assume neigh_len(n2) == 1
+    assume neigh_len(n3) == 1
+    assume neigh_len(n4) == 1
+
+    assume name(n1) == 1
+    assume name(n2) == 2
+    assume name(n3) == 3
+    assume name(n4) == 4
+    assert equals(neighbour_at(0, set_neighbour_at(n1, n2, 0)), n2)
+    assert equals(neighbour_at(0, set_neighbour_at(n2, n3, 0)), n3)
+    assert equals(neighbour_at(0, set_neighbour_at(n3, n4, 0)), n4)
+
+    assume equals(neighbour_at(0, n1), n2)
+
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert forall n11: Node, n12: Node, i: Int :: i <= 0 && i < neigh_len(n11) && equals(neighbour_at(i, n11), n12) ==> exists_path(n11, n12)
+
+    assert exists_path(n1, n2)
+
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert exists_path(n1, n4)
+}

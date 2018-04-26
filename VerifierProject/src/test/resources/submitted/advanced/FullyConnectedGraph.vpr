@@ -1,0 +1,80 @@
+/* Node in a graph */
+domain Node {
+    function neigh_len(node: Node) : Int
+    function exists_path(node1: Node, node2: Node) : Bool
+    function name(n: Node) : Int
+    function equals(n1: Node, n2: Node) : Bool
+
+    axiom ax_equal {
+        forall n1: Node, n2: Node :: {equals(n1, n2)} name(n1) == name(n2) ==> equals(n1, n2)
+    }
+
+    axiom ax_non_reflexive {
+        forall n: Node :: {exists_path(n, n)} !(exists_path(n,n))
+    }
+
+    axiom ax_exists_path {
+        forall n1: Node, n2: Node :: {exists_path(n1, n2)} exists_path(n1, n2) 
+    }
+
+    axiom ax_exists_path_transitive {
+        forall n1: Node, n3: Node :: {exists_path(n1, n3)} exists n2: Node ::
+                exists_path(n1, n2) && exists_path(n2, n3) ==> exists_path(n1, n3)
+    }
+}
+
+/* Represents nodes */
+domain Graph {
+    function size(g: Graph) : Int
+    function root(g: Graph) : Node
+    function belongs(g: Graph, n: Node) : Bool
+    function g_ex_way(g: Graph, n1: Node, n2: Node) : Bool
+
+    axiom ax_belongs {
+        forall n: Node, g: Graph :: {belongs(g, n)} 0 <= name(n) && name(n) < size(g) ==> belongs(g, n) == true
+    }
+
+    axiom ax_g_exists_way {
+        forall n1: Node, n2: Node, g: Graph :: {g_ex_way(g, n1, n2)} belongs(g, n1) && belongs(g, n2) ==> g_ex_way(g, n1, n2)
+    }
+}
+
+method test() {
+    // should pass
+    assert forall i: Int, n: Node, g: Graph :: (0 <= i && i < 10 && name(n) == i && size(g) > i) ==> belongs(g, n) 
+    
+    var g1: Graph
+    var n1: Node
+
+    assume name(n1) == 1
+    assume size(g1) == 1
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert (belongs(g1, n1))
+
+    // should pass
+    assert forall n11: Node, n12: Node :: exists_path(n11, n12)
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert forall n11: Node, n12: Node, g11: Graph :: g_ex_way(g11, n11, n12)
+
+    // should pass
+    assert forall n11: Node, n12: Node, g11: Graph :: (8 < size(g11) && 0 < name(n11) && name(n11) < 8 && 0 <= name(n12) && name(n12) < 8)
+        ==> g_ex_way(g11, n11, n12)
+
+    var n2: Node
+    assume name(n2) == 0
+    // shouldn't fail
+    assert g_ex_way(g1, n1, n2)
+}
+
+method test2() {
+    var g1: Graph
+    var n1: Node
+    var n2: Node
+
+    assume name(n1) == 1
+    assume name(n2) == 0
+    assume size(g1) == 1
+
+    //:: ExpectedOutput(assert.failed:assertion.false)
+    assert g_ex_way(g1, n1, n2)
+}
