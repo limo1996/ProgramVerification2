@@ -1,0 +1,7 @@
+method test(x: Int) returns (z: Int)
+requires x >= 0
+ensures z < 0
+{
+    z := -x
+    z := z - 1
+}
