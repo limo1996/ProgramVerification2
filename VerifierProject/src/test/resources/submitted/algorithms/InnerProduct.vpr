@@ -1,0 +1,42 @@
+/*  Idea was to implement inner product of two Vectors. However, we failed to estanlish a post condition 
+    for such an method since we would need to write sum in first order logic which we had not been able 
+    to do. 
+*/
+
+domain Vector {
+  function select(m: Vector, i: Int) : Int
+  function store(m:Vector, i: Int, value: Int) : Vector
+  function size(m:Vector) : Int
+
+  axiom select_store_same {
+    forall m: Vector, i: Int, v:Int :: {select(store(m,i,v),i)} inRange(m,i) ==> select(store(m,i,v),i) == v
+  }
+
+  axiom select_store_diff {
+    forall m: Vector, i1: Int, i2: Int, v : Int :: {select(store(m,i1,v),i2)} {select(m,i2),store(m,i1,v)}
+      inRange(m,i1) && inRange(m,i2) && (i1 != i2) ==> select(store(m,i1,v),i2) == select(m,i2)
+  }
+
+  axiom size_store_same {
+    forall m: Vector, i: Int, v: Int :: {size(store(m,i,v))} size(m) == size(store(m, i, v))
+  }
+}
+define inRange(m,i) 0 <= i && i < size(m)
+
+
+method inner_product(v1: Vector, v2: Vector) 
+    returns (i: Int)
+    requires size(v1) == size(v2)
+    requires size(v1) > 0
+    // ensures ??? 
+{
+    i := 0
+    var counter : Int := 0
+    while (counter < size(v1)) 
+        invariant 0 <= counter && counter <= size(v1) 
+        /*invariant i == (old(i) + (select(v1, counter) * select(v2, counter)))*/
+    {
+            i := i + (select(v1, counter) * select(v2, counter))
+            counter := counter + 1
+    }
+}
