@@ -1,6 +1,9 @@
 /*  Idea was to implement inner product of two Vectors. However, we failed to estanlish a post condition 
     for such an method since we would need to write sum in first order logic which we had not been able 
     to do. 
+    
+    Sum can be implemented as recursive method with appropriate post and pre conditions but we would have to 
+    support method calls in order to implement first sum and then inner product.
 */
 
 domain Vector {
