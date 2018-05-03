@@ -1,4 +1,4 @@
-# Submitted
+# Evaluation
 
 Tests that we have created are structured in 4 folders:
  * Advanced : Complex tests that are testing more than one error, contain domains, axioms etc ...
